@@ -404,6 +404,44 @@
       font-size: 0.95rem;
     }
 
+    /* 日付タブ */
+    .date-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .date-tab {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 0.85rem;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .date-tab:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .date-tab.active {
+      background: linear-gradient(145deg, #f39c12, #e67e22);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .date-tab .log-count {
+      font-size: 0.75rem;
+      margin-left: 4px;
+      opacity: 0.8;
+    }
+
     /* 統計 */
     .stats {
       display: flex;
@@ -708,8 +746,11 @@
 
     <!-- タイムライン -->
     <div class="timeline-section">
+      <div class="date-tabs" id="dateTabs">
+        <!-- 動的に生成 -->
+      </div>
       <div class="timeline-header">
-        <span class="timeline-title">📅 今日のログ</span>
+        <span class="timeline-title" id="timelineTitle">📅 今日のログ</span>
         <div class="timeline-actions">
           <button class="copy-btn" id="copyBtn" title="Obsidian形式でコピー">📋 コピー</button>
           <span class="timeline-count" id="logCount">0件</span>
@@ -778,6 +819,8 @@
     // 状態
     let quickTasks = [];
     let todayLogs = [];
+    let allLogs = {}; // 日付別ログ { '2026-02-03': [...], '2026-02-02': [...] }
+    let selectedDate = null; // 選択中の日付
     let editingTaskId = null;
     let selectedEmoji = '💪';
     let selectedColor = 'red';
@@ -804,6 +847,8 @@
     const cancelBtn = document.getElementById('cancelBtn');
     const deleteBtn = document.getElementById('deleteBtn');
     const copyBtn = document.getElementById('copyBtn');
+    const dateTabsEl = document.getElementById('dateTabs');
+    const timelineTitleEl = document.getElementById('timelineTitle');
 
     // 現在時刻を更新
     function updateCurrentTime() {
@@ -824,17 +869,26 @@
       const savedTasks = localStorage.getItem('quickTasks');
       quickTasks = savedTasks ? JSON.parse(savedTasks) : [...DEFAULT_QUICK_TASKS];
 
+      // 全てのログを読み込み
+      allLogs = JSON.parse(localStorage.getItem('allLogs') || '{}');
+
       // 今日のログ
       const today = getTodayKey();
-      const savedDate = localStorage.getItem('lastDate');
+      selectedDate = today;
 
-      if (savedDate !== today) {
-        todayLogs = [];
-        localStorage.setItem('todayLogs', JSON.stringify([]));
-        localStorage.setItem('lastDate', today);
-      } else {
-        todayLogs = JSON.parse(localStorage.getItem('todayLogs') || '[]');
+      // 古いtodayLogsデータがあれば移行
+      const oldTodayLogs = localStorage.getItem('todayLogs');
+      const savedDate = localStorage.getItem('lastDate');
+      if (oldTodayLogs && savedDate) {
+        const parsedOldLogs = JSON.parse(oldTodayLogs);
+        if (parsedOldLogs.length > 0) {
+          allLogs[savedDate] = parsedOldLogs;
+          localStorage.setItem('allLogs', JSON.stringify(allLogs));
+        }
       }
+
+      todayLogs = allLogs[today] || [];
+      localStorage.setItem('lastDate', today);
 
       // 統計
       const totalCount = parseInt(localStorage.getItem('totalCount')) || 0;
@@ -846,6 +900,66 @@
       if (savedKey) apiKeyInput.value = savedKey;
 
       renderQuickTasks();
+      renderDateTabs();
+      renderTimeline();
+    }
+
+    // 日付タブを描画
+    function renderDateTabs() {
+      const today = getTodayKey();
+      const dates = Object.keys(allLogs).sort().reverse();
+
+      // 今日を先頭に追加（もし無ければ）
+      if (!dates.includes(today)) {
+        dates.unshift(today);
+      } else {
+        // 今日を先頭に移動
+        const idx = dates.indexOf(today);
+        dates.splice(idx, 1);
+        dates.unshift(today);
+      }
+
+      // 最新7日分のみ表示
+      const recentDates = dates.slice(0, 7);
+
+      dateTabsEl.innerHTML = recentDates.map(date => {
+        const logs = allLogs[date] || [];
+        const isToday = date === today;
+        const isActive = date === selectedDate;
+        const label = isToday ? '今日' : formatDateLabel(date);
+        return `
+          <button class="date-tab ${isActive ? 'active' : ''}" onclick="selectDate('${date}')">
+            ${label}<span class="log-count">(${logs.length})</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    // 日付ラベルをフォーマット
+    function formatDateLabel(dateStr) {
+      const date = new Date(dateStr);
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      if (dateStr === yesterday.toISOString().split('T')[0]) {
+        return '昨日';
+      }
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
+
+    // 日付を選択
+    function selectDate(date) {
+      selectedDate = date;
+      const today = getTodayKey();
+
+      if (date === today) {
+        timelineTitleEl.textContent = '📅 今日のログ';
+      } else {
+        timelineTitleEl.textContent = `📅 ${formatDateLabel(date)}のログ`;
+      }
+
+      renderDateTabs();
       renderTimeline();
     }
 
@@ -886,16 +1000,26 @@
 
     // タイムライン描画
     function renderTimeline() {
-      logCountEl.textContent = `${todayLogs.length}件`;
+      const today = getTodayKey();
+      const logsToShow = selectedDate === today ? todayLogs : (allLogs[selectedDate] || []);
+      const isToday = selectedDate === today;
 
-      if (todayLogs.length === 0) {
-        timelineEl.innerHTML = '<div class="timeline-empty">まだログがありません<br>タスクを完了して記録しよう！</div>';
+      logCountEl.textContent = `${logsToShow.length}件`;
+
+      if (logsToShow.length === 0) {
+        const message = isToday
+          ? 'まだログがありません<br>タスクを完了して記録しよう！'
+          : 'この日のログはありません';
+        timelineEl.innerHTML = `<div class="timeline-empty">${message}</div>`;
         return;
       }
 
-      const sortedLogs = [...todayLogs].reverse();
+      const sortedLogs = [...logsToShow].reverse();
       timelineEl.innerHTML = sortedLogs.map((log, index) => {
-        const originalIndex = todayLogs.length - 1 - index;
+        const originalIndex = logsToShow.length - 1 - index;
+        const deleteBtn = isToday
+          ? `<button class="delete-log-btn" onclick="deleteLog(${originalIndex})" title="削除">✕</button>`
+          : '';
         return `
         <div class="timeline-item">
           <div class="timeline-dot"></div>
@@ -905,7 +1029,7 @@
               <div class="timeline-task">${log.task}</div>
               <div class="timeline-praise">${log.praise}</div>
             </div>
-            <button class="delete-log-btn" onclick="deleteLog(${originalIndex})" title="削除">✕</button>
+            ${deleteBtn}
           </div>
         </div>
       `}).join('');
@@ -915,13 +1039,18 @@
     function deleteLog(index) {
       if (confirm('このログを削除しますか？')) {
         todayLogs.splice(index, 1);
-        localStorage.setItem('todayLogs', JSON.stringify(todayLogs));
+
+        // allLogsを更新
+        const today = getTodayKey();
+        allLogs[today] = todayLogs;
+        localStorage.setItem('allLogs', JSON.stringify(allLogs));
 
         const totalCount = Math.max(0, parseInt(localStorage.getItem('totalCount') || '0') - 1);
         localStorage.setItem('totalCount', totalCount.toString());
 
         todayCountEl.textContent = todayLogs.length;
         totalCountEl.textContent = totalCount;
+        renderDateTabs();
         renderTimeline();
       }
     }
@@ -935,8 +1064,12 @@
       const log = { time: `${hours}:${minutes}`, task, praise };
 
       todayLogs.push(log);
-      localStorage.setItem('todayLogs', JSON.stringify(todayLogs));
-      localStorage.setItem('lastDate', getTodayKey());
+
+      // allLogsを更新
+      const today = getTodayKey();
+      allLogs[today] = todayLogs;
+      localStorage.setItem('allLogs', JSON.stringify(allLogs));
+      localStorage.setItem('lastDate', today);
 
       const totalCount = parseInt(localStorage.getItem('totalCount') || '0') + 1;
       localStorage.setItem('totalCount', totalCount.toString());
