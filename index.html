@@ -276,6 +276,33 @@
       color: rgba(255, 255, 255, 0.5);
     }
 
+    .timeline-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .copy-btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 0.8rem;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .copy-btn.copied {
+      background: rgba(46, 204, 113, 0.3);
+      color: #2ecc71;
+    }
+
     /* タイムラインアイテム */
     .timeline {
       position: relative;
@@ -657,7 +684,10 @@
     <div class="timeline-section">
       <div class="timeline-header">
         <span class="timeline-title">📅 今日のログ</span>
-        <span class="timeline-count" id="logCount">0件</span>
+        <div class="timeline-actions">
+          <button class="copy-btn" id="copyBtn" title="Obsidian形式でコピー">📋 コピー</button>
+          <span class="timeline-count" id="logCount">0件</span>
+        </div>
       </div>
       <div class="timeline" id="timeline">
         <div class="timeline-empty">まだログがありません<br>タスクを完了して記録しよう！</div>
@@ -747,6 +777,7 @@
     const saveBtn = document.getElementById('saveBtn');
     const cancelBtn = document.getElementById('cancelBtn');
     const deleteBtn = document.getElementById('deleteBtn');
+    const copyBtn = document.getElementById('copyBtn');
 
     // 現在時刻を更新
     function updateCurrentTime() {
@@ -1127,6 +1158,36 @@
     modal.addEventListener('click', (e) => {
       if (e.target === modal) closeModal();
     });
+
+    // Obsidian形式でクリップボードにコピー
+    function copyToClipboard() {
+      if (todayLogs.length === 0) {
+        showMessage('コピーするログがありません');
+        return;
+      }
+
+      const today = getTodayKey();
+      let markdown = `## ${today} のログ\n\n`;
+
+      todayLogs.forEach(log => {
+        markdown += `- [x] ${log.time} ${log.task}\n`;
+        markdown += `  - ${log.praise}\n`;
+      });
+
+      navigator.clipboard.writeText(markdown).then(() => {
+        copyBtn.textContent = '✅ コピー完了';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.textContent = '📋 コピー';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      }).catch(err => {
+        console.error('Copy failed:', err);
+        showMessage('コピーに失敗しました');
+      });
+    }
+
+    copyBtn.addEventListener('click', copyToClipboard);
 
     // Service Worker登録
     if ('serviceWorker' in navigator) {
