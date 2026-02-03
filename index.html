@@ -371,6 +371,32 @@
       display: inline-block;
     }
 
+    .timeline-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .timeline-content {
+      flex: 1;
+    }
+
+    .delete-log-btn {
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.3);
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .delete-log-btn:hover {
+      background: rgba(231, 76, 60, 0.2);
+      color: #e74c3c;
+    }
+
     .timeline-empty {
       text-align: center;
       padding: 40px 20px;
@@ -868,14 +894,36 @@
       }
 
       const sortedLogs = [...todayLogs].reverse();
-      timelineEl.innerHTML = sortedLogs.map(log => `
+      timelineEl.innerHTML = sortedLogs.map((log, index) => {
+        const originalIndex = todayLogs.length - 1 - index;
+        return `
         <div class="timeline-item">
           <div class="timeline-dot"></div>
-          <div class="timeline-time">${log.time}</div>
-          <div class="timeline-task">${log.task}</div>
-          <div class="timeline-praise">${log.praise}</div>
+          <div class="timeline-item-header">
+            <div class="timeline-content">
+              <div class="timeline-time">${log.time}</div>
+              <div class="timeline-task">${log.task}</div>
+              <div class="timeline-praise">${log.praise}</div>
+            </div>
+            <button class="delete-log-btn" onclick="deleteLog(${originalIndex})" title="削除">✕</button>
+          </div>
         </div>
-      `).join('');
+      `}).join('');
+    }
+
+    // ログを削除
+    function deleteLog(index) {
+      if (confirm('このログを削除しますか？')) {
+        todayLogs.splice(index, 1);
+        localStorage.setItem('todayLogs', JSON.stringify(todayLogs));
+
+        const totalCount = Math.max(0, parseInt(localStorage.getItem('totalCount') || '0') - 1);
+        localStorage.setItem('totalCount', totalCount.toString());
+
+        todayCountEl.textContent = todayLogs.length;
+        totalCountEl.textContent = totalCount;
+        renderTimeline();
+      }
     }
 
     // ログを追加
