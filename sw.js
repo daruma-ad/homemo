@@ -1,4 +1,4 @@
-const CACHE_NAME = 'homemo-v1';
+const CACHE_NAME = 'homemo-v2';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -9,17 +9,28 @@ const urlsToCache = [
 
 // インストール時にキャッシュ
 self.addEventListener('install', event => {
+  self.skipWaiting(); // 新しいSWをすぐに有効化
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(urlsToCache))
   );
 });
 
-// フェッチ時にキャッシュを返す（オフライン対応）
+// フェッチ時にネットワークを優先（Network First）
 self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request)
-      .then(response => response || fetch(event.request))
+    fetch(event.request)
+      .then(response => {
+        // ネットワークが成功したらキャッシュを更新して返す
+        return caches.open(CACHE_NAME).then(cache => {
+          cache.put(event.request, response.clone());
+          return response;
+        });
+      })
+      .catch(() => {
+        // オフライン時はキャッシュを返す
+        return caches.match(event.request);
+      })
   );
 });
 
