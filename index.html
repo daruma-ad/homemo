@@ -1346,15 +1346,15 @@
 
     // Obsidian形式でクリップボードにコピー
     function copyToClipboard() {
-      if (todayLogs.length === 0) {
+      const logsToShow = selectedDate === getTodayKey() ? todayLogs : (allLogs[selectedDate] || []);
+      if (logsToShow.length === 0) {
         showMessage('コピーするログがありません');
         return;
       }
 
-      const today = getTodayKey();
-      let markdown = `## ${today} のログ\n\n`;
+      let markdown = `## ${selectedDate} のログ\n\n`;
 
-      todayLogs.forEach(log => {
+      logsToShow.forEach(log => {
         markdown += `- [x] ${log.time} ${log.task}\n`;
         markdown += `  - ${log.praise}\n`;
       });
