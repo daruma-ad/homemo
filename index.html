@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ホメモ</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -85,9 +85,12 @@
       border-radius: 14px;
       background: rgba(0, 0, 0, 0.3);
       color: #fff;
-      font-size: 1.1rem;
+      font-size: 16px;
       font-family: 'Noto Sans JP', sans-serif;
       transition: all 0.3s;
+      -webkit-user-select: text;
+      user-select: text;
+      touch-action: manipulation;
     }
 
     .task-input::placeholder {
@@ -502,8 +505,11 @@
       border-radius: 8px;
       background: rgba(0, 0, 0, 0.2);
       color: #fff;
-      font-size: 0.9rem;
+      font-size: 16px;
       margin-top: 6px;
+      -webkit-user-select: text;
+      user-select: text;
+      touch-action: manipulation;
     }
 
     .settings-section input:focus {
@@ -578,8 +584,11 @@
       border-radius: 12px;
       background: rgba(0, 0, 0, 0.3);
       color: #fff;
-      font-size: 1rem;
+      font-size: 16px;
       font-family: 'Noto Sans JP', sans-serif;
+      -webkit-user-select: text;
+      user-select: text;
+      touch-action: manipulation;
     }
 
     .modal-field input::placeholder {
@@ -985,9 +994,12 @@
         });
         // 長押し対応
         let pressTimer;
-        btn.addEventListener('touchstart', () => {
-          pressTimer = setTimeout(() => openEditModal(task.id), 500);
-        });
+        btn.addEventListener('touchstart', (e) => {
+          pressTimer = setTimeout(() => {
+            e.preventDefault();
+            openEditModal(task.id);
+          }, 500);
+        }, { passive: true });
         btn.addEventListener('touchend', () => clearTimeout(pressTimer));
         btn.addEventListener('touchmove', () => clearTimeout(pressTimer));
 
@@ -1279,6 +1291,7 @@
       deleteBtn.style.display = 'none';
       updatePickerSelection();
       modal.classList.add('show');
+      setTimeout(() => taskNameInput.focus(), 400);
     }
 
     function openEditModal(taskId) {
@@ -1293,6 +1306,7 @@
       deleteBtn.style.display = 'block';
       updatePickerSelection();
       modal.classList.add('show');
+      setTimeout(() => taskNameInput.focus(), 400);
     }
 
     function closeModal() {
